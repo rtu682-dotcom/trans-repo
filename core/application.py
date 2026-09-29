@@ -24,10 +24,14 @@ def is_online_service_available (host,timeout):
         socket.setdefaulttimeout(None)
 
 
-def is_online(timeout=2):
+def is_online(reason, timeout=4):
     for host, port in PING_HOSTS:
         try:
             with socket.create_connection((host, port), timeout=timeout):
+                if reason == "model_download":
+                    ip = socket.gethostbyname("argos-net.com")
+                    with socket.create_connection((ip, 443), timeout=timeout):
+                        return True
                 return True
         except (socket.timeout, OSError):
             continue
@@ -68,8 +72,8 @@ class Application:
 
     def run(self) -> None:
         is_offline_model_installed = self.translator.check_language()
-        is_language_installed: bool
-        if not is_offline_model_installed and is_online(3):
+
+        if not is_offline_model_installed and is_online("model_download",3):
             print ("Скачивание и установка офлайн-модели для возможности работы программы без интернета", flush=True)
             try:
                 downloaded_model_path = self.translator.download_model(self.translator.download_and_get_available_packages())
@@ -77,8 +81,6 @@ class Application:
             except Exception as e:
                 print(f"{type(e).__name__}: {e}")
                 print ("Не удалось скачать офлайн-модель автоматически. Рекомендуется сделать это вручную",flush=True)
-
-        is_language_installed = self.translator.check_language()
 
 
         print()
@@ -98,7 +100,7 @@ class Application:
                     break
                 if self.capture_requested:
                    self.capture_requested = False
-                   self.translate(is_language_installed)
+                   self.translate()
                 time.sleep(0.05)
         finally:
             self.shutdown()
@@ -169,7 +171,7 @@ class Application:
             return None, None
 
 
-    def translate(self,is_language_installed) -> None:
+    def translate(self) -> None:
             ocr_blocks, one_string_text = self.capture()
             if one_string_text is None:
                 return
@@ -183,7 +185,7 @@ class Application:
                     print(f"Yandex Translate не сработал: {type(e).__name__}: {e}", flush=True)
 
             if translated is None:
-                if not is_language_installed:
+                if not self.translator.check_language():
                     try:
                         self.root.deiconify()
                         self.root.update()
@@ -202,13 +204,8 @@ class Application:
                     translation_object = self.translator.get_translation()
                     translated = translation_object.translate(one_string_text)
                 except Exception as e:
-                    msg = str(e)
-                    if "stanza" in msg or "raw.githubusercontent.com" in msg:
-                        print("Для первого перевода Argos нужен интернет — он скачивает дополнительные модели (stanza). Подключитесь и повторите ALT+T.", flush=True)
-                    else:
-                        print(f"Ошибка перевода: {e}", flush=True)
+                    print(f"Ошибка перевода Argos: {e}", flush=True)
                     return
-
 
             print("RU:", flush=True)
             start = 0

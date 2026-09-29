@@ -1,4 +1,5 @@
 import os
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from tkinter import messagebox, filedialog
@@ -17,7 +18,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MODELS_DIR = PROJECT_ROOT / "models"
 
 
-def _split_sentences_regex(self, text=None):
+def _split_sentences_regex(self,text):
     text = text.strip()
     if not text:
         return []
@@ -40,7 +41,7 @@ class Translator:
         self.api_key = YANDEX_API_KEY
         self.folder_id = FOLDER_ID
         self.models_dir = MODELS_DIR
-        self.model_path = MODELS_DIR / "translate-{from_code}_{to_code}.argosmodel"
+        self.model_path = MODELS_DIR / f"translate-{from_code}_{to_code}.argosmodel"
 
 
     def ask_yes_no(self, prompt: str, title: str):
@@ -55,6 +56,39 @@ class Translator:
                 initialdir=str(initial_directory),
         )
         return path or None
+
+    def download_package_with_idle_timeout(self,package, connect_timeout=10, read_timeout=10):
+        target_dir = Path(tempfile.gettempdir()) / "argos-translate"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for url in package.links:
+            try:
+                filename = url.split("/")[-1]
+                print(filename)
+                target_path = target_dir / filename
+                total = 0
+                last_report = 0
+
+                with requests.get(url, stream=True, timeout=(connect_timeout, read_timeout)) as r:
+                    r.raise_for_status()
+                    total_size = int(r.headers.get("Content-Length", 0))
+                    with open(target_path, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=64 * 1024):
+                            if not chunk:
+                                continue
+                            f.write(chunk)
+                            total += len(chunk)
+                            mb = total / 1024 / 1024
+                            if mb - last_report >= 10:
+                                last_report = mb
+                                if total_size:
+                                    pct = total * 100 / total_size
+                                    print(f"  ...{mb:.0f} МБ ({pct:.0f}%)", flush=True)
+                                else:
+                                    print(f"  ...{mb:.0f} МБ", flush=True)
+                return str(target_path)
+            except Exception as e:
+                continue
+        raise RuntimeError(f"Все зеркала недоступны")
 
     def manual_model_installation (self):
         if not self.ask_yes_no("Загрузить модель вручную?","Установка модели"):
@@ -96,8 +130,13 @@ class Translator:
         return response.json()["translations"][0]["text"]
 
     def download_and_get_available_packages(self):
-        call_with_timeout(argostranslate.package.update_package_index, 30)
+        try:
+            call_with_timeout(argostranslate.package.update_package_index, 30)
+        except Exception as e:
+            print(f"Не удалось обновить индекс: {type(e).__name__}: {e}", flush=True)
+            return []
         return call_with_timeout(argostranslate.package.get_available_packages, 30)
+
 
     def download_model(self, available_packages):
         package = None
@@ -107,8 +146,9 @@ class Translator:
                 break
         if package is None:
             raise LookupError(f"Пакет {self.from_code}→{self.to_code} не найден.")
-        path = call_with_timeout(package.download, 500)
-        return path
+
+
+        return self.download_package_with_idle_timeout(package)
 
     def install_model(self,downloaded_model_path):
         argostranslate.package.install_from_path(downloaded_model_path)
@@ -121,6 +161,7 @@ class Translator:
                 if translation.from_lang.code == self.from_code and translation.to_lang.code == self.to_code:
                     return True
         return False
+
 
 
 def call_with_timeout(func, timeout_sec):

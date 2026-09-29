@@ -1,0 +1,67 @@
+# === Секреты ===
+.env
+*.env
+!.env.example
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# === Виртуальное окружение ===
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# === PyCharm / IDE ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# === Модели Argos (большие файлы) ===
+models/*.argosmodel
+models/**/*.argosmodel
+
+# === Скриншоты (тестовые) ===
+test/screenshots/*.png
+test/screenshots/*.jpg
+test/screenshots/*.jpeg
+
+# === Логи и временные файлы ===
+*.log
+*.tmp
+*.bak
+*.cache
+
+# === Windows ===
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# === macOS ===
+.DS_Store
+
+# === Office temp ===
+~$*.docx
+~$*.xlsx

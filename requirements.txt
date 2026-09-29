@@ -1,0 +1,11 @@
+# Screen capture / hotkeys
+mss
+keyboard
+numpy
+
+# Windows OCR
+winsdk>=1.0.0b10
+
+# Alternative OCR
+paddleocr==3.7.0
+paddlepaddle==3.2.2
